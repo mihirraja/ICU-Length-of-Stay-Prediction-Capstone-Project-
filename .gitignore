@@ -1,0 +1,19 @@
+# Local environment and editor files
+capstone/
+.idea/
+.mplconfig/
+.tmp/
+.duckdb_tmp/
+__pycache__/
+*.pyc
+
+# Restricted or large MIMIC-IV data should not be committed
+data/raw/
+data/processed/
+
+# Keep generated bulk outputs and caches out of GitHub
+output/
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
