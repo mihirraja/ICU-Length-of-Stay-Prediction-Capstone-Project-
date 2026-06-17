@@ -1,0 +1,38 @@
+{
+  "model_file": "saved_models/cox_survival/model.joblib",
+  "model_type": "lifelines CoxPHFitter with one-hot encoded synthetic demo features",
+  "task": "survival",
+  "target": "time_to_icu_discharge_after_24h",
+  "target_definition": "Public demo survival target: synthetic remaining ICU LOS duration with discharge event indicator",
+  "feature_columns": [
+    "age",
+    "first_careunit",
+    "admission_type",
+    "heart_rate_mean_24h",
+    "map_mean_24h",
+    "lactate_max_24h",
+    "radiology_note_count_24h",
+    "procedure_event_count_24h",
+    "medication_count_24h",
+    "abnormal_radiology_flag_24h"
+  ],
+  "cox_feature_columns": [
+    "age",
+    "heart_rate_mean_24h",
+    "map_mean_24h",
+    "lactate_max_24h",
+    "radiology_note_count_24h",
+    "procedure_event_count_24h",
+    "medication_count_24h",
+    "abnormal_radiology_flag_24h",
+    "first_careunit_CCU",
+    "first_careunit_CVICU",
+    "first_careunit_MICU",
+    "first_careunit_SICU",
+    "first_careunit_TSICU",
+    "admission_type_ELECTIVE",
+    "admission_type_EMERGENCY",
+    "admission_type_URGENT"
+  ],
+  "training_note": "Public synthetic-data demo artifact. The offline project used restricted MIMIC-IV-derived data that cannot be redistributed on GitHub."
+}

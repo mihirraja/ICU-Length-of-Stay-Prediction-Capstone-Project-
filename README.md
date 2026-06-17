@@ -12,8 +12,8 @@ repository can be reviewed without access to restricted patient records.
 - **Data source:** MIMIC-IV-derived ICU, admissions, chart-event, lab-event,
   radiology, medication, input/output, and procedure tables.
 - **Public data policy:** no real patient-level MIMIC-IV records are committed.
-- **Public demo:** a saved scikit-learn Random Forest pipeline runs against
-  synthetic ICU-style rows.
+- **Public demo:** saved binary, three-class, and survival model artifacts run
+  against synthetic ICU-style rows.
 - **Modeling work:** preprocessing, feature engineering, classification,
   survival modeling, and visualization scripts are included for transparency.
 
@@ -28,9 +28,9 @@ pip install -r requirements.txt
 python saved_models/run_saved_model_demo.py
 ```
 
-This loads `saved_models/short_stay_random_forest/model.joblib`, validates the
-synthetic sample schema, transforms `sample_data/fake_icu_los_sample.csv`, and
-prints predicted probabilities for longer-than-2-day ICU stays.
+This loads the public artifacts in `saved_models/`, validates the synthetic
+sample schema, transforms `sample_data/fake_icu_los_sample.csv`, and prints
+classification probabilities plus Cox survival demo scores.
 
 ## Repository Structure
 
@@ -88,13 +88,14 @@ MIMIC-IV access is restricted and patient-level rows cannot be redistributed
 publicly. To keep the repository reviewable, this project includes:
 
 - a small synthetic CSV that follows the model feature shape
-- a compact saved scikit-learn pipeline
+- compact saved scikit-learn and Cox survival demo artifacts
 - metadata describing the model interface
 - a runnable inference script
 
 The public demo is meant to verify engineering structure and saved-model
-inference. It is not a substitute for the offline clinical evaluation performed
-on the restricted dataset.
+inference across the binary, three-class, and survival workflows. It is not a
+substitute for the offline clinical evaluation performed on the restricted
+dataset.
 
 ## Project Highlights
 

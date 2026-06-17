@@ -1,12 +1,13 @@
 {
-  "model_file": "saved_models/short_stay_random_forest/model.joblib",
+  "model_file": "saved_models/three_class_random_forest/model.joblib",
   "model_type": "scikit-learn Pipeline with StandardScaler, OneHotEncoder, and RandomForestClassifier",
-  "task": "classification_binary",
-  "target": "longer_than_2d",
-  "target_definition": "Binary public demo: 1 = ICU LOS > 2 days; 0 = ICU LOS <= 2 days",
+  "task": "classification_three_class",
+  "target": "los_class",
+  "target_definition": "Three-class public demo: short, medium, or long ICU LOS class",
   "classes": [
-    "<=2 days",
-    ">2 days"
+    "short",
+    "medium",
+    "long"
   ],
   "feature_columns": [
     "age",

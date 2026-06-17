@@ -252,8 +252,8 @@ figures document the fuller clinical feature work.
 
 - Raw MIMIC-IV tables and generated patient-level processed tables are not
   shareable in the public repo.
-- The public saved model is a synthetic-data smoke-test artifact, not a
-  clinically validated model.
+- The public saved models are synthetic-data smoke-test artifacts, not
+  clinically validated models.
 - The completed offline pipeline now includes first-24-hour vitals, labs,
   input/output events, prescriptions, procedure events, and radiology-note
   features. These should no longer be described as missing.

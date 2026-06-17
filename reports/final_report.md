@@ -101,9 +101,10 @@ the prediction problem.
 
 ## Public Reproducibility Demo
 
-The public repository includes a compact saved-model demo under `saved_models/`.
-It uses synthetic ICU-style rows because real MIMIC-IV patient rows cannot be
-redistributed.
+The public repository includes compact saved-model demos under `saved_models/`.
+They include binary classification, three-class classification, and Cox survival
+artifacts. They use synthetic ICU-style rows because real MIMIC-IV patient rows
+cannot be redistributed.
 
 Run from the repository root:
 
@@ -114,8 +115,8 @@ pip install -r requirements.txt
 python saved_models/run_saved_model_demo.py
 ```
 
-The script validates the input schema, loads a saved scikit-learn pipeline, and
-prints predicted probabilities for longer-than-2-day ICU stays.
+The script validates the input schema, loads each saved public artifact, and
+prints classification probabilities plus survival demo scores.
 
 The public demo is a smoke test for engineering reproducibility. It is not a
 clinical validation result.
@@ -124,8 +125,8 @@ clinical validation result.
 
 - The public repository cannot include raw MIMIC-IV data or generated
   patient-level processed tables.
-- The public saved model is trained on synthetic ICU-style data so reviewers can
-  test the inference workflow.
+- The public saved models are trained on synthetic ICU-style data so reviewers
+  can test the inference workflow.
 - Detailed ventilator settings are only partially represented through procedure
   and intervention flags.
 - Diagnosis codes and formal severity scores are not emphasized in the current
