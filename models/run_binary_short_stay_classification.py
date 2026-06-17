@@ -1,5 +1,7 @@
 from pathlib import Path
+import json
 
+import joblib
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
@@ -30,6 +32,8 @@ RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
 PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
 OUTPUT_DIR = PROJECT_ROOT / "output" / "classification_results"
 RADIOLGY_FEATURE_PATH = PROJECT_ROOT / "output" / "features" / "radiology_features_first24h.csv"
+SAVED_MODEL_DIR = PROJECT_ROOT / "models" / "saved"
+DEMO_DATA_PATH = PROJECT_ROOT / "data" / "sample" / "fake_icu_los_sample.csv"
 
 CLASS_LABELS = ["short", "longer"]
 
@@ -267,6 +271,66 @@ def evaluate_classification(
     return metrics
 
 
+def build_fake_demo_rows(
+    X_train: pd.DataFrame,
+    feature_cols: list[str],
+    categorical_features: list[str],
+    n_rows: int = 24,
+) -> pd.DataFrame:
+    """Create non-patient demo rows with the same schema as the fitted model input."""
+    rng = np.random.default_rng(170)
+    rows = []
+    categorical_defaults = {
+        "gender": ["M", "F"],
+        "first_careunit": ["MICU", "SICU", "CCU", "CVICU"],
+        "admission_type": ["EMERGENCY", "URGENT", "ELECTIVE"],
+        "admission_location": ["EMERGENCY ROOM", "TRANSFER FROM HOSPITAL", "PHYSICIAN REFERRAL"],
+        "insurance": ["Medicare", "Other", "Private"],
+        "language": ["ENGLISH", "SPANISH"],
+        "marital_status": ["MARRIED", "SINGLE", "WIDOWED"],
+        "race": ["WHITE", "BLACK/AFRICAN AMERICAN", "HISPANIC/LATINO", "ASIAN"],
+    }
+    demo_text = [
+        "portable chest radiograph with mild bibasilar atelectasis and support lines in place",
+        "no acute cardiopulmonary abnormality identified on first day imaging",
+        "endotracheal tube and central venous catheter present with small pleural effusion",
+        "postoperative radiology note with low lung volumes and mild pulmonary edema",
+    ]
+
+    numeric_features = [
+        c for c in feature_cols if c not in set(categorical_features + ["rad_text_24h"])
+    ]
+    medians = X_train[numeric_features].median(numeric_only=True).replace([np.inf, -np.inf], np.nan)
+
+    for i in range(n_rows):
+        row = {}
+        for col in feature_cols:
+            if col == "rad_text_24h":
+                row[col] = demo_text[i % len(demo_text)]
+            elif col in categorical_features:
+                choices = categorical_defaults.get(col)
+                if choices is None:
+                    observed = X_train[col].dropna().astype(str).unique().tolist()
+                    choices = observed[:5] if observed else ["UNKNOWN"]
+                row[col] = choices[i % len(choices)]
+            else:
+                base = medians.get(col, 0)
+                base = 0 if pd.isna(base) else float(base)
+                if col.endswith("_missing"):
+                    row[col] = int(i % 5 == 0)
+                elif col in {"icu_admit_weekend", "has_rad_24h"} or col.startswith(("rad_", "kw_", "rx_")):
+                    row[col] = int(i % 3 == 0)
+                elif "count" in col or col.endswith("_count_24h"):
+                    row[col] = max(0, int(round(base + rng.integers(0, 3))))
+                else:
+                    scale = max(abs(base) * 0.10, 1.0)
+                    row[col] = round(float(base + rng.normal(0, scale)), 3)
+        rows.append(row)
+
+    demo = pd.DataFrame(rows, columns=feature_cols)
+    return demo
+
+
 def main() -> None:
     X, y, groups = prepare_modeling_data()
     text_and_cat = {
@@ -328,6 +392,8 @@ def main() -> None:
     results = []
     reports = {}
     confusion_frames = {}
+    saved_random_forest_path = SAVED_MODEL_DIR / "random_forest_short_stay_model.joblib"
+    saved_logistic_regression_path = SAVED_MODEL_DIR / "logistic_regression_short_stay_model.joblib"
 
     for model_name, estimator in models:
         pipeline = Pipeline(
@@ -355,6 +421,53 @@ def main() -> None:
             index=[f"actual_{c}" for c in CLASS_LABELS],
             columns=[f"pred_{c}" for c in CLASS_LABELS],
         )
+        if model_name == "Random Forest":
+            SAVED_MODEL_DIR.mkdir(parents=True, exist_ok=True)
+            joblib.dump(pipeline, saved_random_forest_path)
+            metadata = {
+                "model_file": str(saved_random_forest_path.relative_to(PROJECT_ROOT)),
+                "model_type": "scikit-learn Pipeline with preprocessing and RandomForestClassifier",
+                "target": "los_class",
+                "classes": list(pipeline.classes_),
+                "feature_columns": list(X.columns),
+                "training_rows": int(len(X_train)),
+                "test_rows": int(len(X_test)),
+                "training_note": (
+                    "Trained locally on restricted MIMIC-IV-derived first-24-hour features. "
+                    "The model artifact is included for demonstration; raw patient data is not."
+                ),
+            }
+            (SAVED_MODEL_DIR / "random_forest_short_stay_model_metadata.json").write_text(
+                json.dumps(metadata, indent=2)
+            )
+
+            demo = build_fake_demo_rows(X_train, list(X.columns), categorical_features)
+            demo_pred = pipeline.predict(demo)
+            demo_score = pipeline.predict_proba(demo)[:, list(pipeline.classes_).index("short")]
+            demo.insert(0, "demo_stay_id", [f"fake_{i + 1:03d}" for i in range(len(demo))])
+            demo["demo_true_los_class"] = demo_pred
+            demo["saved_model_probability_short"] = np.round(demo_score, 4)
+            DEMO_DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+            demo.to_csv(DEMO_DATA_PATH, index=False)
+        elif model_name == "Logistic Regression":
+            SAVED_MODEL_DIR.mkdir(parents=True, exist_ok=True)
+            joblib.dump(pipeline, saved_logistic_regression_path)
+            metadata = {
+                "model_file": str(saved_logistic_regression_path.relative_to(PROJECT_ROOT)),
+                "model_type": "scikit-learn Pipeline with preprocessing and LogisticRegression",
+                "target": "los_class",
+                "classes": list(pipeline.classes_),
+                "feature_columns": list(X.columns),
+                "training_rows": int(len(X_train)),
+                "test_rows": int(len(X_test)),
+                "training_note": (
+                    "Trained locally on restricted MIMIC-IV-derived first-24-hour features. "
+                    "The model artifact is included for demonstration; raw patient data is not."
+                ),
+            }
+            (SAVED_MODEL_DIR / "logistic_regression_short_stay_model_metadata.json").write_text(
+                json.dumps(metadata, indent=2)
+            )
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     results_df = pd.DataFrame(results).sort_values(
@@ -387,6 +500,9 @@ def main() -> None:
     print("\nClassification Results")
     print(results_df.to_string(index=False, float_format=lambda x: f"{x:0.3f}"))
     print(f"\nSaved results to: {results_path}")
+    print(f"Saved Random Forest model to: {saved_random_forest_path}")
+    print(f"Saved Logistic Regression model to: {saved_logistic_regression_path}")
+    print(f"Saved fake demo data to: {DEMO_DATA_PATH}")
 
 
 if __name__ == "__main__":

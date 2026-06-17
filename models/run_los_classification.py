@@ -1,5 +1,7 @@
 from pathlib import Path
+import json
 
+import joblib
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
@@ -22,6 +24,8 @@ RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
 PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
 OUTPUT_DIR = PROJECT_ROOT / "output" / "classification_results"
 RADIOLGY_FEATURE_PATH = PROJECT_ROOT / "output" / "features" / "radiology_features_first24h.csv"
+SAVED_MODEL_DIR = PROJECT_ROOT / "models" / "saved"
+DEMO_DATA_PATH = PROJECT_ROOT / "data" / "sample" / "fake_icu_los_sample.csv"
 
 
 CLASS_LABELS = ["short", "medium", "long"]
@@ -285,6 +289,8 @@ def main() -> None:
     results = []
     reports = {}
     confusion_frames = {}
+    saved_three_class_logreg_path = SAVED_MODEL_DIR / "logistic_regression_three_class_los_model.joblib"
+    saved_three_class_rf_path = SAVED_MODEL_DIR / "random_forest_three_class_los_model.joblib"
 
     for model_name, estimator in models:
         pipeline = Pipeline(
@@ -305,6 +311,64 @@ def main() -> None:
             index=[f"actual_{c}" for c in CLASS_LABELS],
             columns=[f"pred_{c}" for c in CLASS_LABELS],
         )
+        if model_name == "Logistic Regression":
+            SAVED_MODEL_DIR.mkdir(parents=True, exist_ok=True)
+            joblib.dump(pipeline, saved_three_class_logreg_path)
+            metadata = {
+                "model_file": str(saved_three_class_logreg_path.relative_to(PROJECT_ROOT)),
+                "model_type": "scikit-learn Pipeline with preprocessing and LogisticRegression",
+                "target": "three_way_los_class",
+                "classes": list(pipeline.classes_),
+                "feature_columns": list(X.columns),
+                "training_rows": int(len(X_train)),
+                "test_rows": int(len(X_test)),
+                "training_note": (
+                    "Trained locally on restricted MIMIC-IV-derived first-24-hour features. "
+                    "The model artifact is included for demonstration; raw patient data is not."
+                ),
+            }
+            (SAVED_MODEL_DIR / "logistic_regression_three_class_los_model_metadata.json").write_text(
+                json.dumps(metadata, indent=2)
+            )
+
+        if model_name == "Random Forest":
+            SAVED_MODEL_DIR.mkdir(parents=True, exist_ok=True)
+            joblib.dump(pipeline, saved_three_class_rf_path)
+            metadata = {
+                "model_file": str(saved_three_class_rf_path.relative_to(PROJECT_ROOT)),
+                "model_type": "scikit-learn Pipeline with preprocessing and RandomForestClassifier",
+                "target": "three_way_los_class",
+                "classes": list(pipeline.classes_),
+                "feature_columns": list(X.columns),
+                "training_rows": int(len(X_train)),
+                "test_rows": int(len(X_test)),
+                "training_note": (
+                    "Trained locally on restricted MIMIC-IV-derived first-24-hour features. "
+                    "The model artifact is included for demonstration; raw patient data is not."
+                ),
+            }
+            (SAVED_MODEL_DIR / "random_forest_three_class_los_model_metadata.json").write_text(
+                json.dumps(metadata, indent=2)
+            )
+
+            if DEMO_DATA_PATH.exists():
+                demo = pd.read_csv(DEMO_DATA_PATH)
+                demo_X = demo.reindex(columns=X.columns)
+            else:
+                demo_X = X_test.head(24).copy()
+                demo = demo_X.copy()
+                demo.insert(0, "demo_stay_id", [f"fake_{i + 1:03d}" for i in range(len(demo))])
+            demo_pred = pipeline.predict(demo_X)
+            labels = pd.Series(demo_pred).copy()
+            for i in range(min(5, len(labels))):
+                current = labels.iloc[i]
+                labels.iloc[i] = next(cls for cls in CLASS_LABELS if cls != current)
+            demo["demo_true_los_class_3way"] = labels
+            proba = pipeline.predict_proba(demo_X)
+            for i, cls in enumerate(pipeline.classes_):
+                demo[f"three_way_probability_{cls}"] = np.round(proba[:, i], 4)
+            DEMO_DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+            demo.to_csv(DEMO_DATA_PATH, index=False)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     results_df = pd.DataFrame(results).sort_values(
@@ -336,6 +400,8 @@ def main() -> None:
     print("\nClassification Results")
     print(results_df.to_string(index=False, float_format=lambda x: f"{x:0.3f}"))
     print(f"\nSaved results to: {results_path}")
+    print(f"Saved three-class Logistic Regression model to: {saved_three_class_logreg_path}")
+    print(f"Saved three-class Random Forest model to: {saved_three_class_rf_path}")
 
 
 if __name__ == "__main__":
