@@ -26,6 +26,24 @@ def load_metadata() -> dict:
 
 
 def prepare_features(sample: pd.DataFrame, feature_columns: list[str]) -> pd.DataFrame:
+    required_source_columns = set(COLUMN_MAP) | {
+        "demo_stay_id",
+        "first_careunit",
+        "admission_type",
+        "sbp_mean",
+        "dbp_mean",
+        "kw_hemorrhage_24h",
+        "kw_edema_24h",
+        "kw_pneumonia_24h",
+        "kw_effusion_24h",
+        "kw_stroke_24h",
+        "kw_fracture_24h",
+        "kw_intubation_24h",
+    }
+    missing_source = sorted(required_source_columns - set(sample.columns))
+    if missing_source:
+        raise ValueError(f"Sample CSV is missing required source columns: {missing_source}")
+
     features = sample.rename(columns=COLUMN_MAP).copy()
     features["map_mean_24h"] = (features["sbp_mean"] + 2 * features["dbp_mean"]) / 3
     features["abnormal_radiology_flag_24h"] = (
@@ -43,7 +61,11 @@ def prepare_features(sample: pd.DataFrame, feature_columns: list[str]) -> pd.Dat
         .fillna(0)
         .max(axis=1)
     )
-    return features.reindex(columns=feature_columns)
+    missing_features = sorted(set(feature_columns) - set(features.columns))
+    if missing_features:
+        raise ValueError(f"Feature engineering did not create: {missing_features}")
+
+    return features[feature_columns]
 
 
 def main() -> None:
@@ -61,8 +83,12 @@ def main() -> None:
 
     print("Saved model demo: ICU short-stay Random Forest")
     print(f"Rows scored: {len(results)}")
+    print(f"Features validated: {len(metadata['feature_columns'])}")
     print()
     print(results.head(10).to_string(index=False))
+    print()
+    print("Smoke test passed: schema validation and saved-model inference completed.")
+    print("Note: this public demo uses synthetic examples, not clinical validation metrics.")
 
 
 if __name__ == "__main__":

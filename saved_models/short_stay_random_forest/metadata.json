@@ -1,7 +1,8 @@
 {
   "model_file": "saved_models/short_stay_random_forest/model.joblib",
-  "model_type": "RandomForestClassifier sklearn Pipeline",
+  "model_type": "scikit-learn Pipeline with StandardScaler, OneHotEncoder, and RandomForestClassifier",
   "target": "longer_than_2d",
+  "target_definition": "1 = ICU length of stay greater than 2 days; 0 = ICU length of stay 2 days or less",
   "feature_columns": [
     "age",
     "first_careunit",
@@ -14,5 +15,5 @@
     "medication_count_24h",
     "abnormal_radiology_flag_24h"
   ],
-  "training_note": "Trained offline on synthetic ICU-style data because MIMIC-IV cannot be shared on GitHub."
+  "training_note": "Trained offline on synthetic ICU-style data because MIMIC-IV cannot be shared on GitHub. This artifact is included only so reviewers can verify the inference workflow from a fresh clone."
 }
