@@ -1,0 +1,18 @@
+{
+  "model_file": "saved_models/short_stay_random_forest/model.joblib",
+  "model_type": "RandomForestClassifier sklearn Pipeline",
+  "target": "longer_than_2d",
+  "feature_columns": [
+    "age",
+    "first_careunit",
+    "admission_type",
+    "heart_rate_mean_24h",
+    "map_mean_24h",
+    "lactate_max_24h",
+    "radiology_note_count_24h",
+    "procedure_event_count_24h",
+    "medication_count_24h",
+    "abnormal_radiology_flag_24h"
+  ],
+  "training_note": "Trained offline on synthetic ICU-style data because MIMIC-IV cannot be shared on GitHub."
+}

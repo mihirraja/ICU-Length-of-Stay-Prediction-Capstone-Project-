@@ -1,85 +1,92 @@
-# Prediction of ICU Length of Stay Using Early Clinical Data
+# ICU Length-of-Stay Prediction
 
-This repository contains the GitHub submission demo for our STATS 170B capstone
-project. The project uses first-24-hour ICU features to demonstrate two related
-prediction tasks:
+Machine learning project for predicting ICU length-of-stay risk from early clinical signals. The project was developed as a STATS 170B capstone using MIMIC-IV-derived ICU data, with public-safe demo assets included so the repository can be reviewed without access to restricted patient records.
 
-- binary classification: `short` ICU stay versus `longer` ICU stay
-- three-way classification: `short`, `medium`, or `long` ICU stay
+## Project Snapshot
 
-The models were trained offline on local MIMIC-IV-derived features. MIMIC-IV
-data is restricted and cannot be shared publicly, so this repository includes
-saved fitted model artifacts, metadata, a small synthetic input sample, and a
-runnable notebook. No real patient-level MIMIC-IV data is included.
+- **Goal:** predict whether an ICU stay is short or longer using information available early in the admission.
+- **Data source:** MIMIC-IV-derived ICU, admissions, chart-event, lab-event, radiology, medication, input/output, and procedure tables.
+- **Public data policy:** no real patient-level MIMIC-IV records are committed.
+- **Public demo:** a saved scikit-learn Random Forest pipeline can be run against synthetic ICU-style rows.
+- **Modeling work:** preprocessing, feature engineering, classification, survival modeling, and visualization scripts are included for transparency.
 
-## Files
+## Repository Structure
 
-- `project.ipynb`
-  - Main runnable notebook. It loads the saved models from `models/saved/`,
-    loads the synthetic demo data from `data/sample/`, computes predictions, and
-    displays example evaluation plots.
-- `project.html`
-  - HTML export of `project.ipynb` with all outputs already shown.
-- `requirements.txt`
-  - Python packages needed to run the notebook.
-- `data/sample/fake_icu_los_sample.csv`
-  - Small synthetic dataset used only to demonstrate inference. It is fake data,
-    not patient data.
-- `models/saved/random_forest_short_stay_model_compressed.joblib`
-  - Saved scikit-learn Pipeline for binary short-stay classification using a
-    Random Forest classifier.
-- `models/saved/logistic_regression_short_stay_model.joblib`
-  - Saved scikit-learn Pipeline for binary short-stay classification using
-    Logistic Regression.
-- `models/saved/random_forest_three_class_los_model_compressed.joblib`
-  - Saved scikit-learn Pipeline for three-way LOS classification using a Random
-    Forest classifier.
-- `models/saved/logistic_regression_three_class_los_model.joblib`
-  - Saved scikit-learn Pipeline for three-way LOS classification using Logistic
-    Regression.
-- `models/saved/*_metadata.json`
-  - Metadata files for each saved model, including target label, classes,
-    feature columns, and offline train/test row counts.
+```text
+saved_models/                 Runnable saved-model inference demo
+sample_data/                  Synthetic sample rows for public inference
+report_plots/                 Clean figures used in project summaries
+reports/                      Written analysis and early findings
+models/                       Training and evaluation scripts
+preprocessing/                MIMIC-IV feature-building scripts
+visualizations/               Plot-generation scripts
+project.ipynb                 Capstone notebook export/source
+project.html                  Rendered notebook snapshot
+```
 
-## How to Run
+## Run The Public Saved-Model Demo
 
-Create an environment and install dependencies:
+The fastest way to verify the repository is to run the saved-model demo:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+python saved_models/run_saved_model_demo.py
 ```
 
-Run the notebook:
+This loads `saved_models/short_stay_random_forest/model.joblib`, transforms the synthetic rows in `sample_data/fake_icu_los_sample.csv`, and prints predicted probabilities for longer-than-2-day ICU stays.
 
-```bash
-jupyter notebook project.ipynb
-```
+## Figures
 
-Then choose **Run All**.
+The cleaned project figures are separated in `report_plots/`:
 
-You can also run it from the command line:
+![Binary model comparison](report_plots/binary_model_comparison.png)
 
-```bash
-jupyter nbconvert --to notebook --execute project.ipynb --output project_rerun.ipynb --ExecutePreprocessor.timeout=60
-```
+![ROC curve](report_plots/binary_roc_curve.png)
 
-Regenerate the HTML export:
+![Feature importances](report_plots/top_feature_importances.png)
 
-```bash
-jupyter nbconvert --to html project.ipynb --output project.html
-```
+Additional figures include:
 
-The notebook is designed to run in under 1 minute because it loads saved models
-instead of training them.
+- `confusion_matrix_comparison.png`
+- `binary_vs_three_way_target_setup.png`
+- `los_class_mix_by_icu_unit.png`
 
-## Notes on Restricted Data
+## What The Full Pipeline Does
 
-The full pipeline used MIMIC-IV tables from PhysioNet, including ICU stay,
-admission, chart-event, lab-event, radiology-note, input/output-event,
-prescription, and procedure-event data. Those files are not included because
-they are restricted and too large for GitHub.
+The restricted-data pipeline builds first-24-hour ICU features from multiple clinical tables:
 
-The fake CSV in this repository was hand-created from the model schema so that
-reviewers can verify that the saved models load and produce predictions.
+- baseline demographics and admission features
+- vital-sign summaries from chart events
+- lab summaries from lab events
+- radiology note counts and keyword features
+- medication, input/output, and procedure-event summaries
+- binary and three-way ICU LOS classification targets
+- model comparison and diagnostic plots
+
+The scripts live in `preprocessing/`, `models/`, and `visualizations/`. They expect local restricted MIMIC-IV-derived files under `data/raw/` and generated files under `data/processed/`, both of which are intentionally excluded from GitHub.
+
+## Why The Public Demo Uses Synthetic Data
+
+MIMIC-IV access is restricted and patient-level rows cannot be redistributed publicly. To keep the repository reviewable, this project includes:
+
+- a small synthetic CSV that follows the model feature shape
+- a compact saved scikit-learn pipeline
+- metadata describing the model interface
+- a runnable inference script
+
+The public demo is meant to verify engineering structure and saved-model inference. It is not a substitute for the offline clinical evaluation performed on the restricted dataset.
+
+## Main Tools
+
+- Python
+- pandas, NumPy
+- scikit-learn
+- DuckDB
+- matplotlib
+- joblib
+
+## Notes For Reviewers
+
+Start with `saved_models/run_saved_model_demo.py` for the reproducible public path, then review `models/run_binary_short_stay_classification.py` and the preprocessing scripts for the full training workflow. The figures in `report_plots/` summarize the modeling outputs and are separated from code so the analysis is easy to scan.

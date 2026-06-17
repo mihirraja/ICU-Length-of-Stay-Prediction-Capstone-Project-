@@ -1,4 +1,5 @@
 # Local environment and editor files
+.venv/
 capstone/
 .idea/
 .mplconfig/
