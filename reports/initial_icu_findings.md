@@ -1,33 +1,71 @@
-# Initial ICU LOS Findings
+# Updated ICU LOS Findings
 
-## Goal
+## Purpose
 
-Use only information available within the first 24 hours of ICU admission to predict how long a patient will stay in the ICU.
+This note summarizes the ICU length-of-stay problem definition and the data
+signals found during the project. It started as an early discovery memo, but it
+has been updated to reflect the current repository: the project now includes
+first-24-hour feature builders for vitals, labs, input/output events,
+prescriptions, procedures, and radiology features.
 
-## Files In The Workspace
+The public GitHub repository still does **not** include real patient-level
+MIMIC-IV data. Raw and processed clinical tables are restricted and intentionally
+excluded from GitHub.
 
-- `icu_stays.csv`
-  - One row per ICU stay.
-  - Includes `stay_id`, `subject_id`, `hadm_id`, `intime`, `outtime`, `los`, `first_careunit`, `admission_type`, and `admission_location`.
-  - This is the main target table because `los` is the ICU length of stay in days.
-- `icu_patients.csv`
-  - Patient-level demographics available at baseline.
-  - Includes `subject_id`, `gender`, and `anchor_age`.
-- `icu_radiology_notes.csv`
-  - Time-stamped radiology note text with linked `stay_id`.
-  - Can contribute first-24-hour text features for the subset of stays with imaging reports early in the admission.
-- `baseline_model_data.parquet`
-  - A model-ready baseline table with 94,444 rows and 41 columns.
-  - Contains only static baseline features: age, gender, first care unit, admission type, admission location, and the target `log_los`.
-  - It does **not** contain first-24-hour vitals, labs, or procedures.
-- `chartevents_reference.parquet`
-  - A lookup table with 3,055 chart item definitions.
-  - Contains `itemid`, `label`, `abbreviation`, `category`, `unitname`, and `param_type`.
-  - This is metadata only, not actual charted patient values.
+## Modeling Goal
 
-## What We Can Say Right Now
+Use information available during the first 24 hours of ICU admission to predict
+ICU length-of-stay risk.
 
-### 1. The target is available and the cohort is large enough
+The project uses two main framings:
+
+- **Regression / survival framing:** predict remaining ICU LOS after the first
+  24 hours.
+- **Classification framing:** classify ICU stays into practical LOS buckets,
+  including a binary short-stay task and a three-way short/medium/long task.
+
+## Current Data Status
+
+The original early report said the workspace did not yet contain first-24-hour
+physiologic measurements. That is no longer accurate for the completed project.
+
+The current pipeline has code to build first-24-hour features from:
+
+- `chartevents`: vital-sign summaries such as heart rate, blood pressure,
+  respiratory rate, temperature, and oxygen saturation.
+- `labevents`: early lab summaries such as creatinine, BUN, sodium, potassium,
+  bicarbonate, glucose, WBC, hemoglobin, platelets, lactate, and anion gap.
+- `inputevents`: fluid, medication, nutrition, blood product, drip, bolus, and
+  other input summaries.
+- `outputevents`: output volume and output-event summaries.
+- `prescriptions`: medication order counts, route features, and flags for
+  clinically relevant medication groups.
+- `procedureevents`: procedure, ventilation, intubation/extubation, line, tube,
+  dialysis, imaging, and event-count features.
+- `radiology notes`: first-24-hour note counts, modality flags, keyword flags,
+  and optional text features.
+
+Relevant scripts:
+
+- `preprocessing/build_chartevents_24h_features.py`
+- `preprocessing/clean_chartevents_24h.py`
+- `preprocessing/build_labevents_24h_features.py`
+- `preprocessing/build_inputevents_24h_features.py`
+- `preprocessing/build_outputevents_24h_features.py`
+- `preprocessing/build_prescriptions_24h_features.py`
+- `preprocessing/build_procedureevents_24h_features.py`
+- `models/run_radiology_feature_models.py`
+
+Downstream model scripts merge those feature tables when available:
+
+- `models/run_clinical_features_models.py`
+- `models/run_binary_short_stay_classification.py`
+- `models/run_los_classification.py`
+- `models/run_cox_survival_model.py`
+
+## Cohort and Target Findings
+
+Initial descriptive analysis found:
 
 - Total ICU stays: `94,444`
 - Mean ICU LOS: `3.63` days
@@ -40,35 +78,29 @@ Use only information available within the first 24 hours of ICU admission to pre
 Interpretation:
 
 - ICU LOS is strongly right-skewed.
-- A regression target like raw LOS will be dominated by long-stay outliers.
-- Using `log_los` is a sensible first baseline.
+- Raw LOS regression is sensitive to long-stay outliers.
+- Log-transforming LOS or modeling remaining LOS after 24 hours is more stable
+  than directly modeling raw total LOS.
 
-### 2. A first-24-hour model has an immediate cohort-definition issue
+## First-24-Hour Cohort Issue
+
+Initial descriptive analysis also found:
 
 - ICU stays shorter than 24 hours: `19,615`
 - Share of all stays shorter than 24 hours: `20.8%`
 
 Interpretation:
 
-- About one in five stays never has a full 24-hour observation window.
-- If the model is defined as "use the first 24 hours," these stays should usually be excluded from training, or treated as a separate task.
-- For the main modeling cohort, a clean first pass is to restrict to stays with `los >= 1` day.
+- About one in five ICU stays do not have a complete first-24-hour observation
+  window.
+- For models that require 24 hours of observed data, a clean main cohort is
+  `los >= 1` day.
+- Very short stays can also be treated as a separate operational task, such as
+  early discharge / short-stay classification.
 
-### 3. The current workspace does not yet contain actual first-24-hour physiologic measurements
+## Descriptive Findings
 
-- We have baseline administrative features.
-- We have radiology note text.
-- We have chart item definitions.
-- We do **not** yet have the underlying time-stamped chart events, vitals, labs, medications, or procedures needed to fully represent the first 24 hours.
-
-Interpretation:
-
-- The current files support baseline modeling and text augmentation.
-- They do not yet support a true first-24-hour multimodal ICU LOS model.
-
-## Initial Descriptive Findings
-
-### LOS by age bin
+### LOS by Age Bin
 
 | Age bin | N | Mean LOS | Median LOS |
 |---|---:|---:|---:|
@@ -80,9 +112,10 @@ Interpretation:
 Takeaway:
 
 - Age alone appears only modestly related to ICU LOS.
-- Older groups have slightly higher median LOS than the youngest group, but the effect is not dramatic.
+- Older groups have slightly higher median LOS than the youngest group, but the
+  effect is not dramatic.
 
-### LOS by gender
+### LOS by Gender
 
 | Gender | N | Mean LOS | Median LOS |
 |---|---:|---:|---:|
@@ -92,9 +125,9 @@ Takeaway:
 Takeaway:
 
 - Gender differences are small.
-- This is unlikely to be a strong standalone predictor.
+- Gender is unlikely to be a strong standalone predictor.
 
-### LOS by first care unit
+### LOS by First Care Unit
 
 | Care unit | N | Mean LOS | Median LOS |
 |---|---:|---:|---:|
@@ -110,10 +143,10 @@ Takeaway:
 
 Takeaway:
 
-- First care unit looks more informative than age or gender.
+- First care unit is more informative than age or gender.
 - Neuro-oriented units have noticeably longer typical stays.
 
-### LOS by admission type
+### LOS by Admission Type
 
 | Admission type | N | Mean LOS | Median LOS |
 |---|---:|---:|---:|
@@ -129,10 +162,11 @@ Takeaway:
 Takeaway:
 
 - Admission pathway appears predictive.
-- `URGENT` admissions stay longer on average than `EW EMER.` and same-day surgical admissions.
-- Observation categories are much shorter and could be handled differently or excluded depending on the clinical definition of the task.
+- `URGENT` admissions stay longer on average than `EW EMER.` and same-day
+  surgical admissions.
+- Observation categories are much shorter and may need separate handling.
 
-### LOS by admission location
+### LOS by Admission Location
 
 | Admission location | N | Mean LOS | Median LOS |
 |---|---:|---:|---:|
@@ -146,17 +180,22 @@ Takeaway:
 
 Takeaway:
 
-- Transfer patients are meaningfully longer stays than ER or physician-referred patients.
-- Admission source is likely useful in a baseline model.
+- Transfer patients have meaningfully longer stays than ER or
+  physician-referred patients.
+- Admission source is useful in a baseline model.
 
-## Early Signal From Radiology Notes
+## Radiology Note Signal
 
-- Distinct ICU stays with any radiology note linked during the ICU stay: `52,654`
-- Distinct ICU stays with at least one radiology note in the first 24 hours: `52,653`
+Initial analysis found:
+
+- Distinct ICU stays with any radiology note linked during the ICU stay:
+  `52,654`
+- Distinct ICU stays with at least one radiology note in the first 24 hours:
+  `52,653`
 - Share of all ICU stays with a first-24-hour radiology note: `55.8%`
 - Share among stays with `los >= 1` day: `60.9%`
 
-### First-24-hour radiology note coverage by LOS bucket
+### First-24-Hour Radiology Note Coverage by LOS Bucket
 
 | LOS bucket | N | With first-24h radiology note | Percent |
 |---|---:|---:|---:|
@@ -168,57 +207,61 @@ Takeaway:
 Takeaway:
 
 - Radiology note availability increases with longer ICU stay.
-- This may be a real signal, but it also means note presence itself could encode care intensity.
-- If text features are used, note availability should be treated carefully to avoid bias from missingness patterns.
+- Note presence may reflect care intensity, so missingness and availability
+  should be modeled carefully.
+- The completed pipeline includes both structured radiology flags and optional
+  TF-IDF text features.
 
-## Recommended Problem Definition
+## Updated Recommended Problem Definition
 
-For a first-pass model, use:
+Recommended main task:
 
-- Cohort: ICU stays with `los >= 1` day
-- Target option A: total ICU LOS in days
-- Target option B: remaining ICU LOS after 24 hours, defined as `los - 1`
+- Cohort: ICU stays with `los >= 1` day when using a full first-24-hour feature
+  window.
+- Regression/survival target: remaining ICU LOS after 24 hours, defined as
+  `los - 1`.
+- Classification target: binary short stay versus longer stay, with optional
+  three-way LOS classes for a harder secondary task.
 
-Preferred option:
+Reasoning:
 
-- `remaining ICU LOS after 24 hours`
+- If the model uses the first 24 hours of data, the first ICU day has already
+  elapsed.
+- Predicting remaining LOS better matches the decision point at hour 24.
+- The binary task is easier to explain and more operationally interpretable for
+  a public demo or recruiter review.
 
-Reason:
+## Current Project Status
 
-- If the model uses the first 24 hours of data, then the first day has already elapsed.
-- Predicting remaining LOS is more aligned with the decision point at hour 24 and avoids baking observed time into the target.
+The project is no longer only a static-feature baseline. The current offline
+pipeline supports multimodal first-24-hour modeling with:
 
-## Best Baseline Model We Can Build With Current Files
+- demographics and admission context
+- charted vitals
+- labs
+- input/output events
+- prescriptions and medication groups
+- procedure events
+- first-day radiology-note counts, flags, keywords, and text
 
-Right now, the strongest reproducible baseline available from the workspace is:
+The public GitHub demo uses a compact synthetic-data model so reviewers can run
+the repository without restricted MIMIC-IV access. The offline model scripts and
+figures document the fuller clinical feature work.
 
-- Inputs:
-  - age
-  - gender
-  - first care unit
-  - admission type
-  - admission location
-  - optional first-24-hour radiology-note presence or text-derived features
-- Target:
-  - `log_los` or `log(remaining_los + small_constant)`
+## Remaining Limitations
 
-This would be a useful starting benchmark, but it is not yet a full first-24-hour ICU severity model.
-
-## What Data Is Still Needed
-
-To answer the original problem well, the missing high-value tables are:
-
-- time-stamped ICU chart events or vitals
-- early labs
-- ventilator settings or respiratory support data
-- vasoactive medication use
-- procedures and interventions in the first 24 hours
-- diagnoses or severity proxies available at or before hour 24
-
-## Suggested Next Step
-
-1. Restrict the cohort to ICU stays with `los >= 1`.
-2. Decide whether the target should be total LOS or remaining LOS after hour 24.
-3. Build a baseline model from the existing static features.
-4. Add radiology-note coverage and text features as an optional second baseline.
-5. Bring in actual first-24-hour charted values so we can build the real clinical feature set.
+- Raw MIMIC-IV tables and generated patient-level processed tables are not
+  shareable in the public repo.
+- The public saved model is a synthetic-data smoke-test artifact, not a
+  clinically validated model.
+- The completed offline pipeline now includes first-24-hour vitals, labs,
+  input/output events, prescriptions, procedure events, and radiology-note
+  features. These should no longer be described as missing.
+- Detailed ventilator settings or respiratory support measurements beyond
+  procedure/intubation/ventilation flags are not fully represented in the
+  current public pipeline.
+- Diagnosis codes and formal severity scores are not emphasized in the current
+  public pipeline. They would be useful additions if available at or before the
+  first 24-hour decision point.
+- External validation on another ICU dataset would be needed before making any
+  clinical claims.

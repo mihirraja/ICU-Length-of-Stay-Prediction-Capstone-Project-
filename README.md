@@ -38,7 +38,7 @@ prints predicted probabilities for longer-than-2-day ICU stays.
 saved_models/                 Runnable saved-model inference demo
 sample_data/                  Synthetic sample rows for public inference
 report_plots/                 Clean figures used in project summaries
-reports/                      Written analysis and early findings
+reports/                      Final report and updated findings notes
 models/                       Training and evaluation scripts
 preprocessing/                MIMIC-IV feature-building scripts
 visualization_scripts/        Code used to generate report figures
@@ -61,6 +61,8 @@ Additional figures include:
 - `confusion_matrix_comparison.png`
 - `binary_vs_three_way_target_setup.png`
 - `los_class_mix_by_icu_unit.png`
+
+The written project summary is available at `reports/final_report.md`.
 
 ## What The Full Pipeline Does
 
