@@ -19,7 +19,7 @@ report_plots/                 Clean figures used in project summaries
 reports/                      Written analysis and early findings
 models/                       Training and evaluation scripts
 preprocessing/                MIMIC-IV feature-building scripts
-visualizations/               Plot-generation scripts
+visualization_scripts/        Code used to generate report figures
 project.ipynb                 Capstone notebook export/source
 project.html                  Rendered notebook snapshot
 ```
@@ -65,7 +65,7 @@ The restricted-data pipeline builds first-24-hour ICU features from multiple cli
 - binary and three-way ICU LOS classification targets
 - model comparison and diagnostic plots
 
-The scripts live in `preprocessing/`, `models/`, and `visualizations/`. They expect local restricted MIMIC-IV-derived files under `data/raw/` and generated files under `data/processed/`, both of which are intentionally excluded from GitHub.
+The scripts live in `preprocessing/`, `models/`, and `visualization_scripts/`. They expect local restricted MIMIC-IV-derived files under `data/raw/` and generated files under `data/processed/`, both of which are intentionally excluded from GitHub.
 
 ## Why The Public Demo Uses Synthetic Data
 
@@ -89,4 +89,4 @@ The public demo is meant to verify engineering structure and saved-model inferen
 
 ## Notes For Reviewers
 
-Start with `saved_models/run_saved_model_demo.py` for the reproducible public path, then review `models/run_binary_short_stay_classification.py` and the preprocessing scripts for the full training workflow. The figures in `report_plots/` summarize the modeling outputs and are separated from code so the analysis is easy to scan.
+Start with `saved_models/run_saved_model_demo.py` for the reproducible public path, then review `models/run_binary_short_stay_classification.py` and the preprocessing scripts for the full training workflow. The final figures in `report_plots/` are separated from the plotting code in `visualization_scripts/` so the analysis is easy to scan.

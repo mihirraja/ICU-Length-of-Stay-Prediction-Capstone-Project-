@@ -16,10 +16,9 @@ data/processed/
 output/
 .ipynb_checkpoints/
 
-# Keep large trained model artifacts out of GitHub, but allow the tiny demo model
+# Keep generated trained model artifacts out of GitHub.
+# The public demo model lives in saved_models/.
 models/saved/*
-!models/saved/random_forest_short_stay_demo.joblib
-!models/saved/random_forest_short_stay_demo_metadata.json
 
 # OS files
 .DS_Store
